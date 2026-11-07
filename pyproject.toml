@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "vidsum-local"
+version = "0.2.0"
+description = "Local video evidence and summaries on Apple Silicon"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["mlx-whisper", "mlx-vlm", "mlx-lm", "Pillow", "playwright", "pyobjc-framework-Vision", "pyobjc-framework-Quartz", "pyobjc-framework-SoundAnalysis"]
+[project.scripts]
+vidsum = "vidsum.cli:main"
+[tool.setuptools.packages.find]
+include = ["vidsum*"]
