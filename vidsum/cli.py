@@ -302,10 +302,27 @@ def summarize(d,base,args):
 ## 能学的点（只分析视频创作：选题、开场、叙事、口播、证据展示、教程组织；最多五条，标推断，不给投资或法律操作建议，不声称成功因果；无信息时不要凑数）
 证据 JSON：
 '''+json.dumps(evidence,ensure_ascii=False)
-    response=api(base+'/chat/completions',{'model':args.model,'messages':[{'role':'user','content':prompt}],'max_tokens':2200,'temperature':.15,'chat_template_kwargs':{'enable_thinking':False}},timeout=480)
-    body=response['choices'][0]['message']['content']
-    body=re.sub(r'<think>.*?</think>','',body,flags=re.S).strip()
-    if not body or response['choices'][0].get('finish_reason')=='length':raise RuntimeError('摘要为空或输出截断，需重试')
+    def ask(content, limit):
+        return api(base+'/chat/completions',{'model':args.model,'messages':[{'role':'user','content':content}],'max_tokens':limit,'temperature':.15,'repetition_penalty':1.12,'chat_template_kwargs':{'enable_thinking':False}},timeout=480)
+    def visible(response):
+        raw=response['choices'][0]['message'].get('content') or ''
+        text=re.sub(r'<think>.*?</think>','',raw,flags=re.S)
+        text=re.sub(r'<think>.*','',text,flags=re.S).strip()
+        loop=re.search(r'(.{8,}?)\1{3,}',text,flags=re.S)
+        if loop:text=text[:loop.start()].rstrip()
+        return text, response['choices'][0].get('finish_reason')
+    needed=['## 这条讲什么','## 结构拆解','## 拍法和剪法','## 关键原话','## 数据','## 能学的点']
+    response=ask(prompt,2400)
+    body,reason=visible(response)
+    if '## 能学的点' not in body and '## 这条讲什么' in body:
+        follow='下面这份摘要还没写完。只补 ## 能学的点：最多五条，每条一句，标推断，只谈视频创作，不重复字符。\n\n'+body[:1800]
+        response=ask(follow,700)
+        extra,_=visible(response)
+        if extra:
+            body=body.rstrip()+'\n\n'+(extra if extra.lstrip().startswith('##') else '## 能学的点\n\n'+extra)
+    if not all(h in body for h in needed):
+        save(d/'summary_failed.json',{'finish_reason':reason,'content':body})
+        raise RuntimeError('摘要为空或输出截断，需重试')
     table=['## 数据','', '| 字段 | meta.json 记录 |','|---|---|']
     for key,label in [('author','作者'),('followers','粉丝'),('published_at','发布时间'),('likes','点赞'),('comments','评论'),('collects','收藏'),('shares','转发'),('duration_s','总时长（秒）')]:
         value=meta.get(key)
