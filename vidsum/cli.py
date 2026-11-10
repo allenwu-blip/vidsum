@@ -132,6 +132,9 @@ def fetch(share, d, chrome, existing_script=None):
 def frames(video,d,info):
     from PIL import Image,ImageDraw,ImageFont
     duration=float(info['format']['duration'])
+    # The container can run longer than the last video frame (audio tail); seeking past it yields no frame.
+    vdur=[float(s['duration']) for s in info.get('streams',[]) if s.get('codec_type')=='video' and s.get('duration')]
+    if vdur and 0<vdur[0]<duration: duration=vdur[0]
     fd=d/'frames';fd.mkdir(exist_ok=True)
     # Analyse scene changes, then select strongest events spread across the timeline.
     r=run(['ffmpeg','-hide_banner','-i',video,'-an','-vf',"scale=320:-2,select='gt(scene,0.22)',showinfo",'-fps_mode','vfr','-f','null','-'])
@@ -146,9 +149,15 @@ def frames(video,d,info):
     times=sorted(set(round(t,3) for t in times if 0<=t<duration))[:24]
     items=[]
     for i,t in enumerate(times):
-        name=f'{i+1:02d}_{t:08.3f}.jpg'
-        run(['ffmpeg','-v','error','-y','-ss',t,'-i',video,'-frames:v','1','-vf',"scale='min(960,iw)':-2",fd/name])
-        items.append({'time_s':t,'timecode':tc(t),'file':name,'scene_change':any(abs(t-s)<.01 for s in scenes)})
+        ok=False
+        for back in (0,0.5,1.5):
+            u=round(max(0.0,t-back),3);name=f'{i+1:02d}_{u:08.3f}.jpg'
+            (fd/name).unlink(missing_ok=True)  # a stale frame from an earlier run must not count as success
+            try:run(['ffmpeg','-v','error','-y','-ss',u,'-i',video,'-frames:v','1','-vf',"scale='min(960,iw)':-2",fd/name])
+            except subprocess.CalledProcessError:continue
+            if (fd/name).exists() and (fd/name).stat().st_size>0:ok=True;break
+        if not ok:continue
+        items.append({'time_s':u,'timecode':tc(u),'file':name,'scene_change':any(abs(u-s)<.01 for s in scenes)})
     # Landscape and portrait thumbnails fit the same cell; no distortion.
     cols=6 if len(items)>16 else 4
     cw,ch=390,540
