@@ -8,6 +8,8 @@ Use it from the terminal, as an MCP server, or as an Agent Skill. The MCP server
 
 <!-- mcp-name: io.github.allenwu-blip/vidsum -->
 
+[![allenwu-blip/vidsum MCP server](https://glama.ai/mcp/servers/allenwu-blip/vidsum/badges/score.svg)](https://glama.ai/mcp/servers/allenwu-blip/vidsum)
+
 ![vidsum summarizing a NASA clip in the terminal](https://raw.githubusercontent.com/allenwu-blip/vidsum/main/docs/demo.gif)
 
 ## Quick start
