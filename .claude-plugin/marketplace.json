@@ -1,0 +1,15 @@
+{
+  "name": "vidsum",
+  "description": "vidsum: summarize or transcribe video files and links, with an MCP server and an agent skill.",
+  "owner": {
+    "name": "allenwu-blip",
+    "url": "https://github.com/allenwu-blip"
+  },
+  "plugins": [
+    {
+      "name": "vidsum",
+      "source": "./",
+      "description": "Summarize or transcribe video from a file or a link (YouTube, Bilibili, Douyin, TikTok, ...). Models run on Apple Silicon with no upload; experimental cloud mode for OpenAI-compatible APIs."
+    }
+  ]
+}

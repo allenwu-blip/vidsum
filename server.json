@@ -1,0 +1,60 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.allenwu-blip/vidsum",
+  "title": "vidsum",
+  "description": "Summarize or transcribe video files and links (YouTube, Bilibili, TikTok...) on Apple Silicon.",
+  "repository": {
+    "url": "https://github.com/allenwu-blip/vidsum",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/allenwu-blip/vidsum",
+  "version": "0.4.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "vidsum-local",
+      "version": "0.4.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "VIDSUM_PROFILE",
+          "description": "small (default; measured peak 7.2 GB, 16 GB Macs untested), large (32 GB+) or cloud (experimental: mock-tested only, no OCR outside macOS)",
+          "isRequired": false,
+          "default": "small"
+        },
+        {
+          "name": "VIDSUM_COOKIES_FROM_BROWSER",
+          "description": "For links that need a signed-in session: browser to read cookies from (chrome, firefox, safari, edge, ...), passed to yt-dlp. Set this or VIDSUM_COOKIES, not both",
+          "isRequired": false
+        },
+        {
+          "name": "VIDSUM_COOKIES",
+          "description": "For links that need a signed-in session: full path to a Netscape cookies.txt (yt-dlp gets a temporary copy). Set this or VIDSUM_COOKIES_FROM_BROWSER, not both",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "VIDSUM_API_KEY",
+          "description": "Only for the cloud profile: key for an OpenAI-compatible API",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "VIDSUM_API_BASE",
+          "description": "Only for the cloud profile: API base URL",
+          "isRequired": false,
+          "default": "https://api.openai.com/v1"
+        }
+      ]
+    }
+  ]
+}
