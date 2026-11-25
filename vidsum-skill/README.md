@@ -22,7 +22,7 @@ The tool itself is the [vidsum-local](https://pypi.org/project/vidsum-local/) pa
 
 ## What it reads, sends and fetches
 
-- It reads only the video file or link you give it. Browser cookies are read only if you ask for them with the `--cookies` or `--cookies-from-browser` option.
+- It reads only the video file or link you give it. Cookies are read only if you ask for them: with the `--cookies` or `--cookies-from-browser` option, or with the VIDSUM_COOKIES or VIDSUM_COOKIES_FROM_BROWSER environment variable if you have set one yourself. vidsum hands them to yt-dlp for that download.
 - uv installs vidsum and its Python packages from PyPI. The one-time setup downloads model weights from Hugging Face.
 - A link is downloaded from the site it points to (yt-dlp; for Douyin, a headless Chrome page load).
 - With the default local profiles nothing else leaves your Mac. Results go to `./vidsum-output/` or a folder you choose. There is no telemetry and no vidsum server.
