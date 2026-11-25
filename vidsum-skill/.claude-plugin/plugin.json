@@ -1,0 +1,28 @@
+{
+  "name": "vidsum",
+  "displayName": "vidsum",
+  "version": "0.4.0",
+  "description": "Agent skill to summarize or transcribe video and audio: a file on your Mac or a link (YouTube, Bilibili, Douyin, Xiaohongshu, TikTok, Instagram, X, ...). Claude runs the vidsum command-line tool and returns a timestamped transcript, SRT/VTT, key-frame notes, on-screen text and a summary with timecode citations. Models run locally on Apple Silicon; experimental cloud mode for OpenAI-compatible APIs.",
+  "author": {
+    "name": "allenwu-blip",
+    "url": "https://github.com/allenwu-blip"
+  },
+  "homepage": "https://github.com/allenwu-blip/vidsum",
+  "repository": "https://github.com/allenwu-blip/vidsum",
+  "license": "MIT",
+  "keywords": [
+    "video",
+    "summarize",
+    "transcribe",
+    "subtitles",
+    "whisper",
+    "mlx",
+    "apple-silicon",
+    "local",
+    "skill",
+    "youtube",
+    "bilibili",
+    "douyin",
+    "yt-dlp"
+  ]
+}
