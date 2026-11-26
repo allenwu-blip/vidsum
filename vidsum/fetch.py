@@ -166,8 +166,9 @@ def _ytdlp_version():
         return 'unknown'
 
 
-def ytdlp_command(url, d, cookies=None, cookies_from_browser=None, max_res=720):
-    """cookies here is the path yt-dlp may rewrite on exit, so callers pass a private copy (run_ytdlp does)."""
+def ytdlp_command(url, d, cookies=None, cookies_from_browser=None, max_res=720, no_cookies=False):
+    """cookies here is the path yt-dlp may rewrite on exit, so callers pass a private copy (run_ytdlp does).
+    no_cookies: pass no cookies and tell yt-dlp not to load any (--ignore-config already keeps its config files out)."""
     cmd = [sys.executable, '-m', 'yt_dlp', '--ignore-config',
            # one link, one recorded video: a playlist or channel stops after its first entry, live streams are skipped
            '--no-playlist', '--playlist-items', '1', '--match-filters', '!is_live',
@@ -180,10 +181,13 @@ def ytdlp_command(url, d, cookies=None, cookies_from_browser=None, max_res=720):
            '--retries', '3', '--socket-timeout', '30',
            # Some CDNs (Bilibili's, 11-24) refuse requests without a Range header; chunked download sends one.
            '--http-chunk-size', '10M']
-    if cookies:
-        cmd += ['--cookies', str(cookies)]
-    if cookies_from_browser:
-        cmd += ['--cookies-from-browser', cookies_from_browser]
+    if no_cookies:
+        cmd += ['--no-cookies', '--no-cookies-from-browser']
+    else:
+        if cookies:
+            cmd += ['--cookies', str(cookies)]
+        if cookies_from_browser:
+            cmd += ['--cookies-from-browser', cookies_from_browser]
     return cmd + ['--', url]
 
 
@@ -234,9 +238,11 @@ def _watch_size(proc, d, max_bytes, over, done):
             return
 
 
-def run_ytdlp(url, d, cookies=None, cookies_from_browser=None, log=None, max_bytes=MAX_BYTES):
+def run_ytdlp(url, d, cookies=None, cookies_from_browser=None, log=None, max_bytes=MAX_BYTES, no_cookies=False):
     """Download with yt-dlp in a child process. Progress goes to the log; returns the META_FIELDS it printed."""
     log = log or (lambda line: print(line, file=sys.stderr, flush=True))
+    if no_cookies:
+        cookies = cookies_from_browser = None
     check_cookie_options(cookies, cookies_from_browser)
     _clean_item(d)
     info, tail, over = {}, [], []
@@ -246,7 +252,9 @@ def run_ytdlp(url, d, cookies=None, cookies_from_browser=None, log=None, max_byt
             cookie_copy = Path(private) / 'cookies.txt'
             shutil.copyfile(Path(cookies).expanduser(), cookie_copy)
             cookie_copy.chmod(0o600)
-        proc = subprocess.Popen(ytdlp_command(url, d, cookie_copy, cookies_from_browser), stdout=subprocess.PIPE,
+        command = (ytdlp_command(url, d, no_cookies=True) if no_cookies
+                   else ytdlp_command(url, d, cookie_copy, cookies_from_browser))
+        proc = subprocess.Popen(command, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, text=True, errors='replace')
         # --max-filesize only works when the size is known up front, so the cap is enforced by watching the files
         done = threading.Event()
@@ -527,11 +535,16 @@ def vimeo_player(url):
     return f'https://player.vimeo.com/video/{match.group(1)}' + (f'?h={match.group(2)}' if match.group(2) else '')
 
 
-def fetch(text, d, probe, cookies=None, cookies_from_browser=None, log=None):
-    """Download the video a link or share text points to into d. Returns meta for meta.json."""
+def fetch(text, d, probe, cookies=None, cookies_from_browser=None, log=None, no_cookies=False):
+    """Download the video a link or share text points to into d. Returns meta for meta.json.
+    no_cookies: yt-dlp gets no cookies at all, and a login error says to pass a downloaded file instead."""
     link = find_url(text)
     if not link:
         raise FetchError('no link found in the input')
+    if no_cookies:
+        cookies = cookies_from_browser = None
+    ytdlp = (lambda target: run_ytdlp(target, d, log=log, no_cookies=True)) if no_cookies else \
+        (lambda target: run_ytdlp(target, d, cookies, cookies_from_browser, log))
     check_cookie_options(cookies, cookies_from_browser)
     if is_direct_media(link):
         try:
@@ -561,7 +574,7 @@ def fetch(text, d, probe, cookies=None, cookies_from_browser=None, log=None):
             browser_problem = str(ex).rstrip(' .')
             log(f'browser route failed ({browser_problem}); trying yt-dlp')
     try:
-        meta = meta_from_info(run_ytdlp(url, d, cookies, cookies_from_browser, log), link, kind)
+        meta = meta_from_info(ytdlp(url), link, kind)
     except Final:
         _clean_item(d)
         raise
@@ -571,7 +584,7 @@ def fetch(text, d, probe, cookies=None, cookies_from_browser=None, log=None):
         if kind == 'vimeo' and vimeo_player(url):
             log('trying the public Vimeo player address')
             try:
-                meta = meta_from_info(run_ytdlp(vimeo_player(url), d, cookies, cookies_from_browser, log), link, kind)
+                meta = meta_from_info(ytdlp(vimeo_player(url)), link, kind)
             except Final:
                 _clean_item(d)
                 raise
@@ -585,6 +598,9 @@ def fetch(text, d, probe, cookies=None, cookies_from_browser=None, log=None):
                 hint = (' Douyin needs the browser extra: run `uvx --from "vidsum-local[browser]" vidsum-local <link>`, '
                         'or start the MCP server with `uvx --from "vidsum-local[browser]" vidsum-local mcp` '
                         '(uses Google Chrome if installed).')
+            elif needs_login(str(first)) and no_cookies:
+                hint = (' This site wants a signed-in session, and --no-cookies never uses one: '
+                        'download the video yourself and pass the file instead.')
             elif needs_login(str(first)) and not (cookies or cookies_from_browser):
                 hint = (' This site wants a signed-in browser session: add --cookies-from-browser chrome '
                         '(or firefox, safari, edge) or --cookies cookies.txt.')

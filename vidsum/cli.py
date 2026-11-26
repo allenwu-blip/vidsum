@@ -550,8 +550,11 @@ def prepare_input(e, d, args, lang, cached_links):
         return dict(source='local', title=src.name, author=None, followers=None, published_at=None, likes=None, comments=None, collects=None, shares=None)
     if looks_like_path(text):
         raise RuntimeError(T(lang, 'err_missing_input'))
-    if args.fetch_command:
+    no_cookies = getattr(args, 'no_cookies', False)
+    if args.fetch_command and not no_cookies:
         meta = fetch_external(args.fetch_command, text, d)
+    elif find_url(text) and no_cookies:
+        meta = fetch_link(text, d, probe, cookies=None, cookies_from_browser=None, log=log, no_cookies=True)
     elif find_url(text):
         meta = fetch_link(text, d, probe, cookies=getattr(args, 'cookies', None),
                           cookies_from_browser=getattr(args, 'cookies_from_browser', None), log=log)
@@ -601,11 +604,17 @@ def add_common(p):
     p.add_argument('--asr-model', default=os.environ.get('VIDSUM_ASR_MODEL'), help='Whisper MLX folder or Hugging Face id')
     p.add_argument('--asr-language', default=os.environ.get('VIDSUM_ASR_LANGUAGE'), help='spoken language hint, e.g. en, zh (default: detect)')
     p.add_argument('--language', default=os.environ.get('VIDSUM_LANGUAGE', 'auto'), help='output language: auto (follow the video), en, zh, ja, ...')
-    p.add_argument('--cookies-from-browser', default=os.environ.get('VIDSUM_COOKIES_FROM_BROWSER'), metavar='BROWSER[:PROFILE]',
+    # These three also come from VIDSUM_COOKIES_FROM_BROWSER, VIDSUM_COOKIES and VIDSUM_FETCH_COMMAND; that happens after
+    # parsing (apply_env_options), so --no-cookies can leave the variables unread.
+    p.add_argument('--cookies-from-browser', default=None, metavar='BROWSER[:PROFILE]',
                    help='for links that need a signed-in session: read cookies from chrome, firefox, safari, edge, brave, ... (passed to yt-dlp)')
-    p.add_argument('--cookies', default=os.environ.get('VIDSUM_COOKIES'), metavar='FILE',
+    p.add_argument('--cookies', default=None, metavar='FILE',
                    help='Netscape-format cookies.txt for links that need a signed-in session (passed to yt-dlp)')
-    p.add_argument('--fetch-command', default=os.environ.get('VIDSUM_FETCH_COMMAND'),
+    p.add_argument('--no-cookies', action='store_true',
+                   help='never use cookies or a signed-in session: no cookies file, no browser cookies, the VIDSUM_COOKIES* and '
+                        'VIDSUM_FETCH_COMMAND variables are not read, and yt-dlp is told not to load any cookies. '
+                        'Links that need a login fail; download the video yourself and pass the file')
+    p.add_argument('--fetch-command', default=None,
                    help='your own downloader instead of the built-in one: COMMAND <input> <item_dir>, must leave meta.json and video.mp4')
     p.add_argument('--no-download', action='store_true', help='never download model weights')
     p.add_argument('--lock-script', default=os.environ.get('VIDSUM_LOCK_SCRIPT'), help=argparse.SUPPRESS)
@@ -641,8 +650,24 @@ def parser():
     s = sp.add_parser('setup', help='check FFmpeg and download the models for a profile')
     s.add_argument('--profile', default=None); s.add_argument('--check', action='store_true', help='only report, download nothing')
     s.add_argument('--transcribe-only', action='store_true', help='only the speech model (1.6 GB)')
+    s.add_argument('--no-cookies', action='store_true', help='accepted so every command can carry it; setup downloads no videos')
     sp.add_parser('mcp', help='run the MCP server on stdio')
     return p
+
+
+def apply_env_options(p, args):
+    """Fill the download options from the environment, unless --no-cookies says to leave all of them alone."""
+    if args.no_cookies:
+        given = [flag for flag, value in (('--cookies', args.cookies), ('--cookies-from-browser', args.cookies_from_browser),
+                                          ('--fetch-command', args.fetch_command)) if value]
+        if given:
+            p.error('--no-cookies cannot be combined with ' + ', '.join(given))
+        args.cookies = args.cookies_from_browser = args.fetch_command = None
+        return
+    for name, variable in (('cookies', 'VIDSUM_COOKIES'), ('cookies_from_browser', 'VIDSUM_COOKIES_FROM_BROWSER'),
+                           ('fetch_command', 'VIDSUM_FETCH_COMMAND')):
+        if getattr(args, name) is None:
+            setattr(args, name, os.environ.get(variable))
 
 
 def normalize_argv(argv):
@@ -885,6 +910,7 @@ def main(argv=None):
     if args.command == 'mcp':
         from .mcp_server import main as mcp_main
         mcp_main(); return
+    apply_env_options(p, args)
     if args.command == 'transcribe': sys.exit(cmd_transcribe(args))
     cmd_run(p, args)
 

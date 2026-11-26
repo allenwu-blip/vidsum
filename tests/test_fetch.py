@@ -643,6 +643,100 @@ class CliWiring(unittest.TestCase):
         self.assertEqual(args.cookies_from_browser, 'firefox')
 
 
+class NoCookies(unittest.TestCase):
+    """--no-cookies: no cookies file, no browser cookies, no VIDSUM_COOKIES* or VIDSUM_FETCH_COMMAND; the default is unchanged."""
+    ENV = {'VIDSUM_COOKIES': '/nowhere/cookies.txt', 'VIDSUM_COOKIES_FROM_BROWSER': 'chrome', 'VIDSUM_FETCH_COMMAND': 'my-downloader'}
+
+    def parsed(self, argv):
+        p = cli.parser()
+        args = p.parse_args(cli.normalize_argv(argv))
+        cli.apply_env_options(p, args)
+        return args
+
+    def test_switch_leaves_the_environment_unread(self):
+        with patch.dict(os.environ, self.ENV):
+            for argv in (['https://youtu.be/x', '--no-cookies'], ['transcribe', 'https://youtu.be/x', '--no-cookies']):
+                args = self.parsed(argv)
+                self.assertTrue(args.no_cookies)
+                self.assertEqual((args.cookies, args.cookies_from_browser, args.fetch_command), (None, None, None))
+
+    def test_without_switch_the_environment_still_applies(self):
+        with patch.dict(os.environ, self.ENV):
+            args = self.parsed(['https://youtu.be/x'])
+            self.assertFalse(args.no_cookies)
+            self.assertEqual((args.cookies, args.cookies_from_browser, args.fetch_command),
+                             ('/nowhere/cookies.txt', 'chrome', 'my-downloader'))
+            args = self.parsed(['transcribe', 'https://youtu.be/x', '--cookies-from-browser', 'firefox'])
+            self.assertEqual(args.cookies_from_browser, 'firefox')  # a flag still wins over the variable
+        with patch.dict(os.environ, {}, clear=True):
+            args = self.parsed(['https://youtu.be/x'])
+            self.assertEqual((args.cookies, args.cookies_from_browser, args.fetch_command), (None, None, None))
+
+    def test_switch_refuses_cookie_flags(self):
+        for extra in (['--cookies', 'c.txt'], ['--cookies-from-browser', 'chrome'], ['--fetch-command', 'dl']):
+            with patch('sys.stderr', io.StringIO()) as err, self.assertRaises(SystemExit):
+                self.parsed(['https://youtu.be/x', '--no-cookies', *extra])
+            self.assertIn('--no-cookies cannot be combined with ' + extra[0], err.getvalue())
+
+    def test_main_applies_the_switch(self):
+        seen = {}
+        with patch.dict(os.environ, self.ENV), patch.object(cli, 'cmd_transcribe', lambda args: seen.update(vars(args)) or 0):
+            with self.assertRaises(SystemExit) as caught:
+                cli.main(['transcribe', 'https://youtu.be/x', '--no-cookies'])
+        self.assertEqual(caught.exception.code, 0)
+        self.assertEqual((seen['cookies'], seen['cookies_from_browser'], seen['fetch_command']), (None, None, None))
+
+    def test_ytdlp_command_loads_no_cookies(self):
+        cmd = fetch.ytdlp_command('https://youtu.be/x', Path('/tmp/item'), cookies='/tmp/c.txt',
+                                  cookies_from_browser='chrome', no_cookies=True)
+        self.assertIn('--no-cookies', cmd); self.assertIn('--no-cookies-from-browser', cmd); self.assertIn('--ignore-config', cmd)
+        self.assertNotIn('--cookies', cmd); self.assertNotIn('--cookies-from-browser', cmd); self.assertNotIn('/tmp/c.txt', cmd)
+        self.assertEqual(cmd[-2:], ['--', 'https://youtu.be/x'])
+
+    def test_run_ytdlp_gets_no_cookies(self):
+        with tempfile.TemporaryDirectory() as work:
+            d = Path(work); seen = []
+
+            def fake_command(url, item, *a, **k):
+                seen.append((a, k)); return [sys.executable, '-c', 'pass']
+            # the stand-in downloads nothing, so run_ytdlp ends with "downloaded nothing"; what it was asked to run matters
+            with patch.object(fetch, 'ytdlp_command', fake_command), self.assertRaisesRegex(fetch.FetchError, 'downloaded nothing'):
+                fetch.run_ytdlp('https://youtu.be/x', d, cookies='/nowhere/c.txt', cookies_from_browser='chrome',
+                                log=lambda line: None, no_cookies=True)
+        self.assertEqual(seen, [((), {'no_cookies': True})])
+
+    def test_fetch_passes_nothing_and_hints_at_a_file(self):
+        with tempfile.TemporaryDirectory() as work:
+            d = Path(work); calls = []
+
+            def fake(url, item, *a, **k):
+                calls.append((a, k)); (item / 'video.mp4').write_bytes(b'x'); return {'title': 't'}
+            with patch.object(fetch, 'run_ytdlp', fake):
+                fetch.fetch('https://www.youtube.com/watch?v=x', d, lambda path: None, cookies='/nowhere/c.txt',
+                            cookies_from_browser='chrome', log=lambda line: None, no_cookies=True)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0][0], ()); self.assertTrue(calls[0][1]['no_cookies'])
+
+            def login(*a, **k):
+                raise fetch.FetchError('ERROR: [instagram] x: login required. Use --cookies')
+            with patch.object(fetch, 'run_ytdlp', login):
+                with self.assertRaises(fetch.FetchError) as caught:
+                    fetch.fetch('https://www.instagram.com/reel/x/', d, lambda path: None, log=lambda line: None, no_cookies=True)
+            message = str(caught.exception)
+            self.assertIn('pass the file', message); self.assertNotIn('--cookies-from-browser', message)
+
+    def test_prepare_input_skips_cookies_and_custom_downloader(self):
+        with tempfile.TemporaryDirectory() as work:
+            d = Path(work); seen = {}
+
+            def fake(text, item, probe, **k):
+                seen.update(k); (item / 'video.mp4').write_bytes(b'x'); return {'link': fetch.find_url(text), 'title': 't'}
+            args = SimpleNamespace(fetch_command='dl', cookies='c.txt', cookies_from_browser='safari', no_cookies=True)
+            with patch.object(cli, 'fetch_link', fake), patch.object(cli, 'fetch_external', side_effect=AssertionError('custom')):
+                cli.prepare_input({'input': DOUYIN_SHARE}, d, args, 'zh', {})
+        self.assertEqual((seen['cookies'], seen['cookies_from_browser'], seen['no_cookies']), (None, None, True))
+
+
 class PublicClaims(unittest.TestCase):
     """The docs, the skill and the MCP descriptions must not say links are unsupported."""
     ROOT = Path(__file__).resolve().parents[1]

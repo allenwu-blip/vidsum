@@ -5,7 +5,7 @@ license: MIT
 compatibility: Needs uv and FFmpeg on PATH. Links are downloaded with yt-dlp (installed with vidsum); Douyin also needs the browser extra plus Google Chrome or Playwright's Chromium. Local models need an Apple Silicon Mac (measured peak 7.2 GB; 16 GB Macs should work but are untested). Elsewhere set VIDSUM_PROFILE=cloud and VIDSUM_API_KEY; the cloud profile is tested only against a mock server and has no OCR outside macOS.
 metadata:
   homepage: https://github.com/allenwu-blip/vidsum
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # vidsum
@@ -32,7 +32,7 @@ Useful options for `uvx vidsum-local <file>`:
 - `--no-visual` skips the frames: faster, transcript and OCR only.
 - `--profile large` uses a 35B model on 32 GB+ Macs; `--profile cloud` (experimental) uses `VIDSUM_API_KEY` and `VIDSUM_API_BASE`.
 - `--template creator` analyses a short video the way a creator would (hook, structure, shots, takeaways).
-- `--cookies-from-browser chrome` (or `firefox`, `safari`, `edge`) or `--cookies cookies.txt` for links that need a signed-in session; use one, not both. Reading browser cookies can make macOS ask the user for permission.
+- `--cookies-from-browser chrome` (or `firefox`, `safari`, `edge`) or `--cookies cookies.txt` for links that need a signed-in session; use one, not both. Reading browser cookies can make macOS ask the user for permission. Add `--no-cookies` to use no cookies at all (it also ignores the `VIDSUM_COOKIES*` variables).
 
 ## Before you run
 

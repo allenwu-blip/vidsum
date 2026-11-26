@@ -61,6 +61,8 @@ uvx vidsum-local "https://www.instagram.com/reel/xxxxxxx/" --cookies cookies.txt
 
 `--cookies-from-browser` also takes `firefox`, `safari`, `edge`, `brave` and a profile (`"chrome:Profile 1"`, quoted because of the space). On macOS, reading Chrome's cookies may make the system ask for permission. Use one of the two options, not both. vidsum hands yt-dlp a temporary copy of your cookies file, so the file itself is never rewritten. For the MCP server, set one of `VIDSUM_COOKIES_FROM_BROWSER` or `VIDSUM_COOKIES` (a full path) in its environment.
 
+`--no-cookies` turns all of this off: no cookies file, no browser cookies, the `VIDSUM_COOKIES*` and `VIDSUM_FETCH_COMMAND` variables are not read, and yt-dlp is told not to load any cookies. A link that needs a login then fails, and the message says to download the video yourself and pass the file.
+
 **Use it responsibly.** Only process videos you have the right to use, and follow each site's terms of service. vidsum downloads one video per link for your own analysis: a playlist or channel link gives its first video, and live streams are skipped. It does not get around DRM, and cookies are only read when you ask for it.
 
 ## Add it to your AI agent
@@ -196,7 +198,7 @@ Peaks are MLX's own high-water mark on a 32 GB Apple M6, one model loaded at a t
 What vidsum runs, sends and fetches:
 
 - `uvx` installs vidsum and its Python packages from PyPI. `vidsum setup` downloads the model weights from Hugging Face once.
-- A link is downloaded from the site it points to, by yt-dlp in a child process; for Douyin, a headless Chrome or Chromium loads the public video page. Cookies are read only with `--cookies` or `--cookies-from-browser`. yt-dlp's metadata comes back on standard output, so no file with signed media addresses or request headers is left on disk.
+- A link is downloaded from the site it points to, by yt-dlp in a child process; for Douyin, a headless Chrome or Chromium loads the public video page. Cookies are read only with `--cookies` or `--cookies-from-browser` (or their `VIDSUM_COOKIES` and `VIDSUM_COOKIES_FROM_BROWSER` variables), and never with `--no-cookies`. yt-dlp's metadata comes back on standard output, so no file with signed media addresses or request headers is left on disk.
 - With the local profiles, nothing else leaves the Mac: the video, frames, transcript and summary are written to the output folder you choose. There is no telemetry and no vidsum server.
 - With the cloud profile, audio, frames and text are sent to the OpenAI-compatible endpoint you set in `VIDSUM_API_BASE`.
 
@@ -237,6 +239,7 @@ uvx vidsum-local talk.mp4 --language zh --focus "what about pricing?"
 - `--visual-frames 8-12`: how many key frames the vision model looks at.
 - `--manifest batch.json`: many videos at once, as `[{"id": "a1", "input": "a.mp4", "label": "...", "focus": "..."}]`. An `input` can be a file or a link.
 - `--cookies-from-browser BROWSER[:PROFILE]`, `--cookies FILE`: for links that need a signed-in session (see [Links and share text](#links-and-share-text)).
+- `--no-cookies`: never use cookies or a signed-in session, even when the cookie variables are set. Links that need a login fail; pass a downloaded file instead.
 - `--fetch-command CMD`: your own downloader instead of the built-in one. vidsum runs `CMD <input> <item_dir>`; it must leave `meta.json` and `video.mp4` there.
 
 ## How it works
@@ -299,6 +302,7 @@ uvx --from "vidsum-local[browser]" vidsum-local "7.94 复制打开抖音，看�
 - 默认的 small 档（9B 模型）实测峰值 7.2 GB，16 GB 的 Mac 还没试过。45 秒的片子在 M6 32 GB 上、没有别的 GPU 活时，整条约 2 分钟，只出字幕约 3.5 秒。32 GB 以上可以 `--profile large`（35B），看图更细。
 - 11-24 每个平台实测下载了一条公开视频（美国网络）：YouTube、B 站、TikTok、X、微博不用 cookies；小红书 App 分享出来的链接带 xsec_token，不用 cookies，去掉 token 的链接要 cookies；抖音分享文字和短链都能下，要 browser 扩展；Vimeo 要登录的页面会改走公开播放器，有 DRM 的下不了。快手不支持，yt-dlp 没有快手的解析器。
 - 要登录才能看的视频，用自己浏览器里的登录状态：`--cookies-from-browser chrome`（也可以是 firefox、safari、edge），或者 `--cookies cookies.txt`，两个只选一个。cookies 文件交给 yt-dlp 的是临时副本，原文件不会被改。MCP server 在环境变量里设 `VIDSUM_COOKIES_FROM_BROWSER` 或 `VIDSUM_COOKIES`（写完整路径），也是只设一个。
+- 加 `--no-cookies` 就全关：不读 cookies 文件和浏览器 cookies，`VIDSUM_COOKIES*`、`VIDSUM_FETCH_COMMAND` 这几个环境变量也不读，yt-dlp 也不拿 cookies。要登录才能看的视频会下载失败，先自己下到本地，再把文件给它。
 - 请负责任地使用：只处理你有权使用的视频，遵守各平台的用户协议。vidsum 一条链接只下一个视频，给你自己分析用：播放列表和频道链接只取第一个，直播不下；不绕过 DRM；不加 cookies 选项，就不读浏览器的 cookies。
 - 单个下载最多 4 GB。网站标成直播的、服务器不报大小的音视频流都不下；不报大小的普通文件也会被拒，先自己下到本地再传路径。在 Claude 这类客户端里取消一次调用，正在跑的那条不会停，下一次调用要等它跑完。
 - 会连网的地方：uvx 从 PyPI 装包；`setup` 从 Hugging Face 下模型；链接从它所在的网站下（抖音用无头浏览器打开公开页面）；cloud 档把音频、画面和文字发到你设的接口。别的都留在本机，没有统计上报。
