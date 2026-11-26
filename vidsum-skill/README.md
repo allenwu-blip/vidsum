@@ -20,13 +20,14 @@ The tool itself is the [vidsum-local](https://pypi.org/project/vidsum-local/) pa
 3. Summarize https://commons.wikimedia.org/wiki/File:ScienceCasts-_The_Zero_Gravity_Coffee_Cup.webm and tell me which points come from what is said and which from what is shown.
 4. Break down the first three seconds of this short video for a creator: (a local file or pasted share text).
 
-## What it reads, sends and fetches
+## Privacy: what it reads, sends, fetches and keeps
 
 - It reads only the video file or link you give it. Cookies are read only if you ask for them: with the `--cookies` or `--cookies-from-browser` option, or with the VIDSUM_COOKIES or VIDSUM_COOKIES_FROM_BROWSER environment variable if you have set one yourself. vidsum hands them to yt-dlp for that download.
 - uv installs vidsum and its Python packages from PyPI. The one-time setup downloads model weights from Hugging Face.
 - A link is downloaded from the site it points to (yt-dlp; for Douyin, a headless Chrome page load).
 - With the default local profiles nothing else leaves your Mac. Results go to `./vidsum-output/` or a folder you choose. There is no telemetry and no vidsum server.
 - An experimental cloud profile, for machines without Apple Silicon, sends audio, frames and text to an OpenAI-compatible API that you configure. It is off unless you choose it.
+- What it keeps: the results in the output folder, the model weights in the Hugging Face cache (`~/.cache/huggingface/hub`), the packages in uv's cache, and small lock files in `~/.cache/vidsum`. All of it stays on your Mac until you delete it. A cookies file is copied to a temporary folder for the download and that copy is removed afterwards.
 
 Only process videos you have the right to use, and follow each site's terms.
 
