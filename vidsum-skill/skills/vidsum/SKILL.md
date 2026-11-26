@@ -5,41 +5,40 @@ license: MIT
 compatibility: Needs uv and FFmpeg on PATH. Links are downloaded with yt-dlp (installed with vidsum); Douyin also needs the browser extra plus Google Chrome or Playwright's Chromium. Local models need an Apple Silicon Mac (measured peak 7.2 GB; 16 GB Macs should work but are untested). Elsewhere set VIDSUM_PROFILE=cloud and VIDSUM_API_KEY; the cloud profile is tested only against a mock server and has no OCR outside macOS.
 metadata:
   homepage: https://github.com/allenwu-blip/vidsum
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # vidsum
 
-If the `summarize_video` / `transcribe_video` MCP tools are available, call those. Otherwise run the CLI.
+Run the vidsum command-line tool in the terminal. This version never uses cookies or a signed-in session: every command below carries `--no-cookies`, so keep that flag on every vidsum command you run.
 
 ## Run it
 
 Run `setup` the first time only; it downloads about 7.6 GB of models. A summary run prints the summary to stdout and writes the evidence files to `./vidsum-output/`. `transcribe` prints the transcript; `--format` takes `srt`, `md`, `vtt`, `txt` or `json`.
 
 ```bash
-uvx vidsum-local setup
-uvx vidsum-local /path/to/video.mp4
-uvx vidsum-local "https://www.youtube.com/watch?v=jNQXAC9IVRw"
-uvx vidsum-local transcribe /path/to/video.mp4 --format srt
+uvx vidsum-local@0.4.1 setup --no-cookies
+uvx vidsum-local@0.4.1 /path/to/video.mp4 --no-cookies
+uvx vidsum-local@0.4.1 "https://www.youtube.com/watch?v=jNQXAC9IVRw" --no-cookies
+uvx vidsum-local@0.4.1 transcribe /path/to/video.mp4 --format srt --no-cookies
 ```
 
-Put links and share text in quotes: zsh treats `?` and `&` in a bare URL as special characters. For Douyin links use `uvx --from "vidsum-local[browser]" vidsum-local "<link or share text>"`; it opens the public page in headless Chrome.
+Put links and share text in quotes: zsh treats `?` and `&` in a bare URL as special characters. For Douyin links use `uvx --from "vidsum-local[browser]==0.4.1" vidsum-local "<link or share text>" --no-cookies`; it opens the public page in a headless Chrome with a fresh, empty profile.
 
-Useful options for `uvx vidsum-local <file>`:
+Useful options for `uvx vidsum-local@0.4.1 <file> --no-cookies`:
 
 - `--language en|zh|ja|...` language of the summary (default `auto`: follows the speech).
 - `--focus "what does she say about pricing?"` makes the summary answer one question.
 - `--no-visual` skips the frames: faster, transcript and OCR only.
 - `--profile large` uses a 35B model on 32 GB+ Macs; `--profile cloud` (experimental) uses `VIDSUM_API_KEY` and `VIDSUM_API_BASE`.
 - `--template creator` analyses a short video the way a creator would (hook, structure, shots, takeaways).
-- `--cookies-from-browser chrome` (or `firefox`, `safari`, `edge`) or `--cookies cookies.txt` for links that need a signed-in session; use one, not both. Reading browser cookies can make macOS ask the user for permission.
 
 ## Before you run
 
 - The first run downloads model weights. Tell the user the size (7.6 GB for the default profile) and ask before running `setup`.
 - A summary of a 45 s clip took about 2 minutes on an Apple M6 with 32 GB (no other GPU job, models already downloaded). Longer videos, slower Macs and a busy GPU take longer; `--no-visual` roughly halves it. Run it in the background if your tool supports that.
 - Inputs can be a file path, a video link or a whole pasted share message (for example from Douyin or Xiaohongshu); vidsum finds the link inside. Links are downloaded first; with the default local profiles everything then runs on this Mac and nothing is uploaded (the cloud profile sends audio and frames to the API you set). One link gives one video: a playlist or channel link gives its first video, and live streams are skipped.
-- Tested sites (2026-11-24): YouTube, Bilibili, Douyin, Xiaohongshu, TikTok, Instagram, X, Weibo, Vimeo, Wikimedia Commons. Kuaishou is not supported. Other sites depend on yt-dlp. If a download fails with a login or cookies message, ask the user before reading their browser cookies.
+- Tested sites (2026-11-24): YouTube, Bilibili, Douyin, Xiaohongshu, TikTok, Instagram, X, Weibo, Vimeo, Wikimedia Commons. Kuaishou is not supported. Other sites depend on yt-dlp. If a download fails because the site needs a login, this version cannot fetch it: ask the user to download the video and give you the file.
 - Only process videos the user has the right to use, and follow each site's terms.
 
 ## Reading the result

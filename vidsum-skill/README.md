@@ -1,6 +1,6 @@
 # vidsum (skill-only plugin)
 
-This folder is the version of vidsum for the Claude plugin directory. It holds one agent skill and nothing else: no MCP server, no hooks, no scripts. The skill teaches Claude to run the vidsum command-line tool in your terminal and to read its results.
+This folder is the version of vidsum for the Claude plugin directory. It holds one agent skill and nothing else: no hooks, no scripts. The skill teaches Claude to run the vidsum command-line tool in your terminal and to read its results. This version never uses cookies or a signed-in session.
 
 vidsum summarizes or transcribes a video or audio file on your Mac, or a video link (YouTube, Bilibili, Douyin, Xiaohongshu, TikTok, Instagram, X, Weibo, Vimeo and other sites yt-dlp supports, including pasted share text). You get a timestamped transcript, SRT/VTT subtitles, notes on sampled key frames, the text shown on screen, and a short summary whose key points cite timecodes such as `[audio 01:23]`, `[screen 00:40]` and `[OCR 00:12]`. The quotes section is copied from the transcript by code, not written by the model.
 
@@ -11,7 +11,7 @@ vidsum summarizes or transcribes a video or audio file on your Mac, or a video l
 - FFmpeg: follow the [FFmpeg download page](https://ffmpeg.org/download.html).
 - About 7.6 GB of disk for the default models. The skill tells Claude to ask you before it starts that download.
 
-The tool itself is the [vidsum-local](https://pypi.org/project/vidsum-local/) package on PyPI. Claude runs it with uv when the skill is used.
+The tool itself is the [vidsum-local](https://pypi.org/project/vidsum-local/) package on PyPI, version 0.4.1. Claude runs it with uv when the skill is used, with `--no-cookies` on every command.
 
 ## Example prompts
 
@@ -22,23 +22,17 @@ The tool itself is the [vidsum-local](https://pypi.org/project/vidsum-local/) pa
 
 ## Privacy: what it reads, sends, fetches and keeps
 
-- It reads only the video file or link you give it. Cookies are read only if you ask for them: with the `--cookies` or `--cookies-from-browser` option, or with the VIDSUM_COOKIES or VIDSUM_COOKIES_FROM_BROWSER environment variable if you have set one yourself. vidsum hands them to yt-dlp for that download.
+- It reads only the video file or link you give it.
+- This version does not read browser cookies and never uses a signed-in session. Every command runs with `--no-cookies`, which also leaves vidsum's cookie environment variables unread and tells yt-dlp not to load any cookies. Videos that need a login can't be downloaded: download them yourself and use the local file.
 - uv installs vidsum and its Python packages from PyPI. The one-time setup downloads model weights from Hugging Face.
-- A link is downloaded from the site it points to (yt-dlp; for Douyin, a headless Chrome page load).
+- A link is downloaded from the site it points to (yt-dlp; for Douyin, a headless Chrome that starts from a fresh, empty profile).
 - With the default local profiles nothing else leaves your Mac. Results go to `./vidsum-output/` or a folder you choose. There is no telemetry and no vidsum server.
 - An experimental cloud profile, for machines without Apple Silicon, sends audio, frames and text to an OpenAI-compatible API that you configure. It is off unless you choose it.
-- What it keeps: the results in the output folder, the model weights in the Hugging Face cache (`~/.cache/huggingface/hub`), the packages in uv's cache, and small lock files in `~/.cache/vidsum`. All of it stays on your Mac until you delete it. A cookies file is copied to a temporary folder for the download and that copy is removed afterwards.
+- What it keeps: the results in the output folder, the model weights in the Hugging Face cache (`~/.cache/huggingface/hub`), the packages in uv's cache, and small lock files in `~/.cache/vidsum`. All of it stays on your Mac until you delete it.
 
 Only process videos you have the right to use, and follow each site's terms.
 
-## Want the MCP tools too?
-
-The full plugin, with the `summarize_video` and `transcribe_video` MCP tools, installs from the project's own marketplace in Claude Code:
-
-```
-/plugin marketplace add allenwu-blip/vidsum
-/plugin install vidsum@vidsum
-```
+## Source
 
 Source, full documentation and benchmarks: https://github.com/allenwu-blip/vidsum
 
